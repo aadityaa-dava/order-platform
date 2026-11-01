@@ -1,0 +1,23 @@
+# Build output
+target/
+*.class
+*.jar
+!.mvn/wrapper/*.jar
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Environment and secrets
+.env
+*.env.local
+
+# Logs and local data
+*.log
+logs/
+infra/data/
+
+# Load test results
+loadtest/results/*.json
