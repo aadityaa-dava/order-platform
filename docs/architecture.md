@@ -57,7 +57,7 @@ state are ignored (late or duplicate events cannot change the outcome).
 | order.events | order-service | orderId | 3 | |
 | inventory.events | inventory-service | orderId | 3 | |
 | payment.events | payment-service | orderId | 3 | |
-| `<topic>.DLT` | consumer error handler | original key | 1 | dead-letter, one per topic (Phase 7) |
+| `<topic>.DLT` | consumer error handler | original key | 3 | dead-letter, one per topic (Phase 7) |
 
 Design choices:
 - Topic per producing service, event type carried in the message (an

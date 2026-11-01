@@ -1,0 +1,55 @@
+x-postgres: &postgres
+  image: postgres:17-alpine
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+    interval: 5s
+    timeout: 5s
+    retries: 10
+
+services:
+  order-db:
+    <<: *postgres
+    container_name: order-db
+    ports: ["5441:5432"]
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: orders
+      POSTGRES_PASSWORD: orders
+    volumes: ["order-db-data:/var/lib/postgresql/data"]
+
+  inventory-db:
+    <<: *postgres
+    container_name: inventory-db
+    ports: ["5442:5432"]
+    environment:
+      POSTGRES_DB: inventory
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: inventory
+    volumes: ["inventory-db-data:/var/lib/postgresql/data"]
+
+  payment-db:
+    <<: *postgres
+    container_name: payment-db
+    ports: ["5443:5432"]
+    environment:
+      POSTGRES_DB: payments
+      POSTGRES_USER: payments
+      POSTGRES_PASSWORD: payments
+    volumes: ["payment-db-data:/var/lib/postgresql/data"]
+
+  notification-db:
+    <<: *postgres
+    container_name: notification-db
+    ports: ["5444:5432"]
+    environment:
+      POSTGRES_DB: notifications
+      POSTGRES_USER: notifications
+      POSTGRES_PASSWORD: notifications
+    volumes: ["notification-db-data:/var/lib/postgresql/data"]
+
+volumes:
+  order-db-data:
+  inventory-db-data:
+  payment-db-data:
+  notification-db-data:
