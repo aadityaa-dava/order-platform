@@ -1,0 +1,107 @@
+package dev.aadityaa.orderplatform.order.outbox;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * Polling publisher for the transactional outbox (ADR-0002).
+ * Delivery is at-least-once: a crash after the broker ack but before the commit re-sends the event.
+ */
+@Component
+public class OutboxPublisher {
+
+    private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
+
+    private final OutboxRepository outbox;
+    private final KafkaTemplate<String, String> kafka;
+    private final TransactionTemplate tx;
+    private final int batchSize;
+    private final long sendTimeoutMs;
+    private final long retentionSeconds;
+
+    public OutboxPublisher(OutboxRepository outbox, KafkaTemplate<String, String> kafka, TransactionTemplate tx,
+                           @Value("${outbox.batch-size:100}") int batchSize,
+                           @Value("${outbox.send-timeout-ms:5000}") long sendTimeoutMs,
+                           @Value("${outbox.cleanup-retention-seconds:3600}") long retentionSeconds) {
+        this.outbox = outbox;
+        this.kafka = kafka;
+        this.tx = tx;
+        this.batchSize = batchSize;
+        this.sendTimeoutMs = sendTimeoutMs;
+        this.retentionSeconds = retentionSeconds;
+    }
+
+    @Scheduled(fixedDelayString = "${outbox.poll-interval-ms:200}")
+    public void poll() {
+        try {
+            int published;
+            do {
+                Integer result = tx.execute(status -> publishBatch());
+                published = result == null ? 0 : result;
+            } while (published == batchSize); // full batch: more may be waiting, keep draining
+        } catch (Exception e) {
+            log.warn("Outbox publish cycle failed; will retry on next poll: {}", e.toString());
+        }
+    }
+
+    @Scheduled(fixedDelayString = "${outbox.cleanup-interval-ms:60000}")
+    public void cleanup() {
+        try {
+            int deleted = outbox.deletePublishedOlderThanSeconds(retentionSeconds);
+            if (deleted > 0) {
+                log.info("Outbox cleanup removed {} published rows", deleted);
+            }
+        } catch (Exception e) {
+            log.warn("Outbox cleanup failed: {}", e.toString());
+        }
+    }
+
+    private int publishBatch() {
+        List<OutboxRecord> batch = outbox.lockUnpublished(batchSize);
+        if (batch.isEmpty()) {
+            return 0;
+        }
+        List<CompletableFuture<?>> futures = new ArrayList<>(batch.size());
+        for (OutboxRecord record : batch) {
+            futures.add(send(record));
+        }
+
+        List<Long> published = new ArrayList<>(batch.size());
+        for (int i = 0; i < batch.size(); i++) {
+            try {
+                futures.get(i).get(sendTimeoutMs, TimeUnit.MILLISECONDS);
+                published.add(batch.get(i).id());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception e) {
+                log.warn("Publish failed for outbox id {}; stopping this batch: {}", batch.get(i).id(), e.toString());
+                break; // only the leading successes are marked; the rest stay unpublished
+            }
+        }
+        outbox.markPublished(published);
+        return published.size();
+    }
+
+    private CompletableFuture<?> send(OutboxRecord record) {
+        try {
+            var message = new ProducerRecord<String, String>(record.topic(), record.aggregateId().toString(), record.payload());
+            message.headers().add("eventId", record.eventId().toString().getBytes(StandardCharsets.UTF_8));
+            message.headers().add("eventType", record.eventType().getBytes(StandardCharsets.UTF_8));
+            return kafka.send(message);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+}

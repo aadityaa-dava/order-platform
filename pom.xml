@@ -23,5 +23,9 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
+  <modules>
+    <module>services/order-service</module>
+  </modules>
+
   <!-- Service modules are added here one per phase, as each one is created. -->
 </project>
