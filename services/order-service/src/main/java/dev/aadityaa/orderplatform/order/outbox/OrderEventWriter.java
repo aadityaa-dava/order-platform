@@ -1,30 +1,23 @@
 package dev.aadityaa.orderplatform.order.outbox;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.aadityaa.orderplatform.order.domain.Order;
-import dev.aadityaa.orderplatform.order.events.EventEnvelope;
 import dev.aadityaa.orderplatform.order.events.OrderEvents;
-import java.time.Instant;
-import java.util.UUID;
+import dev.aadityaa.orderplatform.platform.messaging.OutboxWriter;
 import org.springframework.stereotype.Component;
 
 /**
- * The only place that builds order events and writes them to the outbox.
- * Every method must be called inside the transaction that changed the order.
+ * Maps order state changes to order events. Every method must run inside the
+ * transaction that changed the order (the shared OutboxWriter enforces this).
  */
 @Component
 public class OrderEventWriter {
 
-    private static final String PRODUCER = "order-service";
     private static final int VERSION = 1;
 
-    private final OutboxRepository outbox;
-    private final ObjectMapper mapper;
+    private final OutboxWriter outbox;
 
-    public OrderEventWriter(OutboxRepository outbox, ObjectMapper mapper) {
+    public OrderEventWriter(OutboxWriter outbox) {
         this.outbox = outbox;
-        this.mapper = mapper;
     }
 
     public void orderCreated(Order order) {
@@ -52,15 +45,7 @@ public class OrderEventWriter {
                 order.getCustomerId(), order.getCustomerEmail(), order.getFailureReason()));
     }
 
-    private <T> void write(Order order, String eventType, T payload) {
-        var envelope = new EventEnvelope<>(
-                UUID.randomUUID(), eventType, VERSION, Instant.now(),
-                order.getId(), order.getCorrelationId(), PRODUCER, payload);
-        try {
-            outbox.insert(envelope.eventId(), order.getId(), eventType,
-                    OrderEvents.TOPIC, mapper.writeValueAsString(envelope));
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Could not serialize " + eventType, e);
-        }
+    private void write(Order order, String eventType, Object payload) {
+        outbox.write(OrderEvents.TOPIC, order.getId(), order.getCorrelationId(), eventType, VERSION, payload);
     }
 }

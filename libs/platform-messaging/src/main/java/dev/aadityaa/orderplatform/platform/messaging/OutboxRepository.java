@@ -1,14 +1,12 @@
-package dev.aadityaa.orderplatform.order.outbox;
+package dev.aadityaa.orderplatform.platform.messaging;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-@Repository
 public class OutboxRepository {
 
     private final JdbcClient jdbc;

@@ -1,4 +1,4 @@
-package dev.aadityaa.orderplatform.order.outbox;
+package dev.aadityaa.orderplatform.platform.messaging;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -8,17 +8,14 @@ import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Polling publisher for the transactional outbox (ADR-0002).
  * Delivery is at-least-once: a crash after the broker ack but before the commit re-sends the event.
  */
-@Component
 public class OutboxPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
@@ -26,20 +23,14 @@ public class OutboxPublisher {
     private final OutboxRepository outbox;
     private final KafkaTemplate<String, String> kafka;
     private final TransactionTemplate tx;
-    private final int batchSize;
-    private final long sendTimeoutMs;
-    private final long retentionSeconds;
+    private final OutboxProperties props;
 
-    public OutboxPublisher(OutboxRepository outbox, KafkaTemplate<String, String> kafka, TransactionTemplate tx,
-                           @Value("${outbox.batch-size:100}") int batchSize,
-                           @Value("${outbox.send-timeout-ms:5000}") long sendTimeoutMs,
-                           @Value("${outbox.cleanup-retention-seconds:3600}") long retentionSeconds) {
+    public OutboxPublisher(OutboxRepository outbox, KafkaTemplate<String, String> kafka,
+                           TransactionTemplate tx, OutboxProperties props) {
         this.outbox = outbox;
         this.kafka = kafka;
         this.tx = tx;
-        this.batchSize = batchSize;
-        this.sendTimeoutMs = sendTimeoutMs;
-        this.retentionSeconds = retentionSeconds;
+        this.props = props;
     }
 
     @Scheduled(fixedDelayString = "${outbox.poll-interval-ms:200}")
@@ -49,7 +40,7 @@ public class OutboxPublisher {
             do {
                 Integer result = tx.execute(status -> publishBatch());
                 published = result == null ? 0 : result;
-            } while (published == batchSize); // full batch: more may be waiting, keep draining
+            } while (published == props.batchSize()); // full batch: more may be waiting, keep draining
         } catch (Exception e) {
             log.warn("Outbox publish cycle failed; will retry on next poll: {}", e.toString());
         }
@@ -58,7 +49,7 @@ public class OutboxPublisher {
     @Scheduled(fixedDelayString = "${outbox.cleanup-interval-ms:60000}")
     public void cleanup() {
         try {
-            int deleted = outbox.deletePublishedOlderThanSeconds(retentionSeconds);
+            int deleted = outbox.deletePublishedOlderThanSeconds(props.cleanupRetentionSeconds());
             if (deleted > 0) {
                 log.info("Outbox cleanup removed {} published rows", deleted);
             }
@@ -68,7 +59,7 @@ public class OutboxPublisher {
     }
 
     private int publishBatch() {
-        List<OutboxRecord> batch = outbox.lockUnpublished(batchSize);
+        List<OutboxRecord> batch = outbox.lockUnpublished(props.batchSize());
         if (batch.isEmpty()) {
             return 0;
         }
@@ -80,7 +71,7 @@ public class OutboxPublisher {
         List<Long> published = new ArrayList<>(batch.size());
         for (int i = 0; i < batch.size(); i++) {
             try {
-                futures.get(i).get(sendTimeoutMs, TimeUnit.MILLISECONDS);
+                futures.get(i).get(props.sendTimeoutMs(), TimeUnit.MILLISECONDS);
                 published.add(batch.get(i).id());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

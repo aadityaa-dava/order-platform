@@ -1,4 +1,4 @@
-package dev.aadityaa.orderplatform.order.outbox;
+package dev.aadityaa.orderplatform.platform.messaging;
 
 import java.util.UUID;
 

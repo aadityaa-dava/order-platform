@@ -24,6 +24,7 @@
   </properties>
 
   <modules>
+    <module>libs/platform-messaging</module>
     <module>services/order-service</module>
   </modules>
 

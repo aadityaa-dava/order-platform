@@ -1,4 +1,4 @@
-package dev.aadityaa.orderplatform.order.events;
+package dev.aadityaa.orderplatform.platform.messaging;
 
 import java.time.Instant;
 import java.util.UUID;
