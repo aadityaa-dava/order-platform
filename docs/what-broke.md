@@ -82,6 +82,42 @@ Each entry: symptom, root cause, fix, lesson.
 - Lesson: a quality gate must judge the current code. If its input can be stale, it will
   eventually fail (or pass) for the wrong reason.
 
+## 7. Traces fell apart at the outbox: one order, five traces
+
+- Symptom: after adding tracing, one order produced five unrelated traces, one per saga hop, and
+  the trace column in the logs changed on every line.
+- Root cause: the HTTP request wrote the outbox row and ended. The event was published later by the
+  scheduler thread, where no trace was active, so the Kafka producer started a new trace at every hop.
+- Fix: store the traceparent in the outbox row and restore it as the parent of an `outbox publish`
+  span when sending (ADR-0004). Result: one trace, four services, 21 spans.
+- Lesson: asynchronous hand-offs (outboxes, queues, schedulers) are where context gets lost.
+  Check the trace of a real request, not just whether tracing is switched on.
+
+## 8. Kafka did not come back after Docker Desktop restarted
+
+- Symptom: after Docker Desktop quit and was restarted, all services logged thousands of
+  "could not be established" errors for localhost:9092 and no order progressed past creation.
+- Root cause: the Postgres and Redis containers had `restart: unless-stopped`; the Kafka
+  container had no restart policy, so it stayed stopped.
+- Fix: add `restart: unless-stopped` to Kafka. Orders created during the outage were not lost:
+  they waited in the outbox and completed within half a second of Kafka returning (the trace shows
+  the 2m22s gap).
+- Lesson: check restart policies for every stateful dependency. The outage also gave real evidence
+  that the outbox keeps its promise during a broker failure.
+
+## 9. A flaky test: the gauge read NaN
+
+- Symptom: a test of the outbox backlog gauge passed on several runs, then failed with
+  "expected 2.0 but was NaN".
+- Root cause: Micrometer gauges hold only a weak reference to the object they read from. The test
+  created that object inline and kept no other reference, so a garbage collection during the test
+  made the gauge report NaN. In production the object is a Spring bean, which the context holds
+  strongly, so the real gauges were never affected.
+- Fix: keep the object in a field for the duration of the test.
+- Lesson: a failure that depends on timing is not "just flaky": find the mechanism (here, garbage
+  collection) instead of rerunning until it is green. A gauge that reads NaN means its source object
+  is gone.
+
 ## Open issues (planned experiments)
 
 - Orders can stay PENDING forever if an event is lost or a service dies mid-saga, and
