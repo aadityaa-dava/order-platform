@@ -27,3 +27,5 @@ echo "--- stock                     (sku | available | reserved)"
 q inventory-db inventory inventory "select sku, available, reserved from stock where sku = '$SKU'"
 echo "--- order status via API"
 curl -s "$BASE/orders/$ID" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p'
+echo "--- notification-service      (type | recipient)"
+q notification-db notifications notifications "select type, recipient from notifications where order_id = '$ID'"
