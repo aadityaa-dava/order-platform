@@ -27,12 +27,27 @@ Each entry: symptom, root cause, fix, lesson.
 - Fix: handle both exception types and build one `errors` map by field name.
 - Lesson: a smoke test that checks response bodies, not just status codes, caught this.
 
+## 3. Dead-letter publishing failed, and a poison message looped forever
+
+- Symptom: a message that exhausted its retries was retried again from the start, over
+  and over, and the dead-letter topics stayed empty. The partition was blocked.
+- Root cause: Spring Kafka 3.x publishes to `<topic>-dlt` by default. Our topics are
+  named `<topic>.DLT` and topic auto-creation is off, so the publish timed out
+  ("Topic payment.events-dlt not present in metadata"). A failed recovery makes the
+  container redeliver the record, which restarted the retry cycle.
+- Fix: the shared error handler now states the destination explicitly
+  (`<topic>.DLT`, same partition) instead of relying on the framework default.
+- Lesson: failure-handling code needs its own failure tests (scripts/poison-test.sh
+  found this). Never rely on a framework default for a name other systems depend on.
+  Note the behaviour is deliberate: if the dead-letter publish fails the message is
+  retried, never dropped, but that blocks the partition, so a failing recoverer needs
+  an alert (Phase 9).
+
 ## Open issues (planned experiments)
 
 - Orders can stay PENDING forever if an event is lost or a service dies mid-saga, and
   nothing notices. Planned: a saga timeout sweeper that cancels stale PENDING orders
   and releases their stock. To be reproduced first by killing a service mid-saga
   (Phase 11), then fixed.
-- Consumers currently use Spring's default error handling (a few immediate retries,
-  then the record is skipped). Planned: exponential backoff plus dead-letter topics
-  (Phase 7) so a poison message is parked, never lost.
+- Nothing reads the dead-letter topics yet. Planned: a metric and alert on DLT depth
+  (Phase 9) and a small replay tool.
