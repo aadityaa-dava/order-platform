@@ -13,6 +13,8 @@ spring:
     locations: classpath:db/migration,classpath:db/seed
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    template:
+      observation-enabled: true
     consumer:
       group-id: inventory-service
       auto-offset-reset: earliest
@@ -21,6 +23,7 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     listener:
       ack-mode: record
+      observation-enabled: true
       concurrency: 3
     producer:
       acks: all
@@ -34,6 +37,12 @@ spring:
         max.block.ms: 5000
 
 management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
   metrics:
     tags:
       application: ${spring.application.name}

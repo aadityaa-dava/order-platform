@@ -42,4 +42,5 @@ for e in rows:
     time = str(e.get("@timestamp", ""))[11:23]
     service = dig(e, "service.name") or "?"
     level = dig(e, "log.level") or "?"
-    print(f"{time:<13}{service:<22}{level:<6} {e.get('message', '')[:140]}")
+    trace = (e.get("traceId") or dig(e, "trace.id") or "")[:8]
+    print(f"{time:<13}{service:<22}{level:<6}{trace:<10}{e.get('message', '')[:130]}")

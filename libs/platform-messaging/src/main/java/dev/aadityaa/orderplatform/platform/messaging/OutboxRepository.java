@@ -15,28 +15,35 @@ public class OutboxRepository {
         this.jdbc = jdbc;
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void insert(UUID eventId, UUID aggregateId, String eventType, String topic, String payloadJson) {
+        insert(eventId, aggregateId, eventType, topic, payloadJson, null);
+    }
+
     /**
      * MANDATORY: must run inside the business transaction. Calling it without one throws,
      * so an event can never be written without the state change it describes (ADR-0002).
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void insert(UUID eventId, UUID aggregateId, String eventType, String topic, String payloadJson) {
+    public void insert(UUID eventId, UUID aggregateId, String eventType, String topic, String payloadJson,
+                       String traceContext) {
         jdbc.sql("""
-                INSERT INTO outbox (event_id, aggregate_id, event_type, topic, payload)
-                VALUES (:eventId, :aggregateId, :eventType, :topic, CAST(:payload AS jsonb))
+                INSERT INTO outbox (event_id, aggregate_id, event_type, topic, payload, trace_context)
+                VALUES (:eventId, :aggregateId, :eventType, :topic, CAST(:payload AS jsonb), :traceContext)
                 """)
                 .param("eventId", eventId)
                 .param("aggregateId", aggregateId)
                 .param("eventType", eventType)
                 .param("topic", topic)
                 .param("payload", payloadJson)
+                .param("traceContext", traceContext)
                 .update();
     }
 
     /** Oldest unpublished rows; SKIP LOCKED lets concurrent pollers avoid blocking each other. */
     public List<OutboxRecord> lockUnpublished(int limit) {
         return jdbc.sql("""
-                SELECT id, event_id, aggregate_id, event_type, topic, payload::text AS payload
+                SELECT id, event_id, aggregate_id, event_type, topic, payload::text AS payload, trace_context
                 FROM outbox
                 WHERE published_at IS NULL
                 ORDER BY id
@@ -50,7 +57,8 @@ public class OutboxRepository {
                         rs.getObject("aggregate_id", UUID.class),
                         rs.getString("event_type"),
                         rs.getString("topic"),
-                        rs.getString("payload")))
+                        rs.getString("payload"),
+                        rs.getString("trace_context")))
                 .list();
     }
 

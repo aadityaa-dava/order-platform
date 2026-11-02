@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS outbox (
     topic         VARCHAR(128) NOT NULL,
     payload       JSONB        NOT NULL,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    published_at  TIMESTAMPTZ
+    published_at  TIMESTAMPTZ,
+    trace_context VARCHAR(255)
 );
 CREATE INDEX IF NOT EXISTS idx_outbox_unpublished ON outbox (id) WHERE published_at IS NULL;
 CREATE TABLE IF NOT EXISTS processed_events (

@@ -1,2 +1,3 @@
 dev.aadityaa.orderplatform.platform.messaging.MessagingAutoConfiguration
 dev.aadityaa.orderplatform.platform.messaging.ConsumerErrorHandlingAutoConfiguration
+dev.aadityaa.orderplatform.platform.messaging.ObservabilityAutoConfiguration

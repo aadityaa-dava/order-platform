@@ -10,6 +10,8 @@ spring:
     password: ${PAYMENT_DB_PASSWORD:payments}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    template:
+      observation-enabled: true
     consumer:
       group-id: payment-service
       auto-offset-reset: earliest
@@ -18,6 +20,7 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     listener:
       ack-mode: record
+      observation-enabled: true
       concurrency: 3
     producer:
       acks: all
@@ -43,6 +46,12 @@ payment:
     backoff-ms: 200
 
 management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
   metrics:
     tags:
       application: ${spring.application.name}

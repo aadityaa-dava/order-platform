@@ -18,6 +18,8 @@ spring:
     enabled: true
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    template:
+      observation-enabled: true
     consumer:
       group-id: order-service
       auto-offset-reset: earliest
@@ -26,6 +28,7 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     listener:
       ack-mode: record
+      observation-enabled: true
       concurrency: 3
     producer:
       acks: all
@@ -46,6 +49,12 @@ outbox:
   cleanup-retention-seconds: 3600
 
 management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
   metrics:
     tags:
       application: ${spring.application.name}

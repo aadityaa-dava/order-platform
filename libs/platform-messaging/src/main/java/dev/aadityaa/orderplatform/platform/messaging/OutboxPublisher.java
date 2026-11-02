@@ -2,9 +2,13 @@ package dev.aadityaa.orderplatform.platform.messaging;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.propagation.Propagator;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -17,6 +21,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Polling publisher for the transactional outbox (ADR-0002).
  * Delivery is at-least-once: a crash after the broker ack but before the commit re-sends the event.
+ * Each event is sent inside an "outbox publish" span whose parent is the trace that wrote the event,
+ * so the saga stays one trace even though publishing happens later, on another thread.
  */
 public class OutboxPublisher {
 
@@ -28,13 +34,17 @@ public class OutboxPublisher {
     private final OutboxProperties props;
     private final Counter publishedCounter;
     private final Counter failureCounter;
+    private final Tracer tracer;           // null when tracing is not configured
+    private final Propagator propagator;   // null when tracing is not configured
 
     public OutboxPublisher(OutboxRepository outbox, KafkaTemplate<String, String> kafka, TransactionTemplate tx,
-                           OutboxProperties props, MeterRegistry registry) {
+                           OutboxProperties props, MeterRegistry registry, Tracer tracer, Propagator propagator) {
         this.outbox = outbox;
         this.kafka = kafka;
         this.tx = tx;
         this.props = props;
+        this.tracer = tracer;
+        this.propagator = propagator;
         this.publishedCounter = Counter.builder("outbox.published").description("Events published to Kafka").register(registry);
         this.failureCounter = Counter.builder("outbox.publish.failures")
                 .description("Failed attempts to publish an outbox event").register(registry);
@@ -96,13 +106,33 @@ public class OutboxPublisher {
     }
 
     private CompletableFuture<?> send(OutboxRecord record) {
-        try {
+        Span relay = startRelaySpan(record);
+        try (Tracer.SpanInScope ignored = relay == null ? null : tracer.withSpan(relay)) {
             var message = new ProducerRecord<String, String>(record.topic(), record.aggregateId().toString(), record.payload());
             message.headers().add("eventId", record.eventId().toString().getBytes(StandardCharsets.UTF_8));
             message.headers().add("eventType", record.eventType().getBytes(StandardCharsets.UTF_8));
-            return kafka.send(message);
+            return kafka.send(message); // the Kafka send span becomes a child of the relay span
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
+        } finally {
+            if (relay != null) {
+                relay.end();
+            }
+        }
+    }
+
+    /** Continues the trace that wrote the event: its parent is the span saved in the outbox row. */
+    private Span startRelaySpan(OutboxRecord record) {
+        if (tracer == null || propagator == null || record.traceContext() == null) {
+            return null;
+        }
+        try {
+            return propagator.extract(Map.of("traceparent", record.traceContext()), Map::get)
+                    .name("outbox publish")
+                    .tag("outbox.event_type", record.eventType())
+                    .start();
+        } catch (Exception e) {
+            return null; // tracing must never stop an event from being published
         }
     }
 }

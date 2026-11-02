@@ -19,6 +19,8 @@ class OutboxMetricsIT extends AbstractLibIT {
     @Autowired TransactionTemplate tx;
     @Autowired JdbcClient jdbc;
 
+    private OutboxMetrics metrics; // a field on purpose: Micrometer gauges hold only a weak reference to their source
+
     @BeforeEach
     void clean() {
         jdbc.sql("TRUNCATE outbox").update();
@@ -27,7 +29,8 @@ class OutboxMetricsIT extends AbstractLibIT {
     @Test
     void gaugesTrackTheBacklogAndItsAge() {
         var registry = new SimpleMeterRegistry();
-        new OutboxMetrics(jdbc).bindTo(registry);
+        metrics = new OutboxMetrics(jdbc);
+        metrics.bindTo(registry);
         assertThat(registry.get("outbox.unpublished").gauge().value()).isZero();
         assertThat(registry.get("outbox.oldest.age").gauge().value()).isZero();
 
