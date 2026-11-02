@@ -17,6 +17,10 @@
 
   <dependencies>
     <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+    <dependency>
       <groupId>dev.aadityaa.orderplatform</groupId>
       <artifactId>platform-messaging</artifactId>
       <version>${project.version}</version>

@@ -1,6 +1,9 @@
 package dev.aadityaa.orderplatform.platform.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -8,6 +11,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.RecordInterceptor;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -28,15 +32,30 @@ public class MessagingAutoConfiguration {
 
     @Bean
     OutboxWriter outboxWriter(OutboxRepository repository, ObjectMapper mapper,
-                              @Value("${spring.application.name}") String producer) {
-        return new OutboxWriter(repository, mapper, producer);
+                              @Value("${spring.application.name}") String producer,
+                              ObjectProvider<MeterRegistry> registry) {
+        return new OutboxWriter(repository, mapper, producer, registry.getIfAvailable(SimpleMeterRegistry::new));
+    }
+
+    /** Spring Boot applies a RecordInterceptor bean to every @KafkaListener container. */
+    @Bean
+    RecordInterceptor<Object, Object> logContextRecordInterceptor(ObjectMapper mapper) {
+        return new LogContextRecordInterceptor(mapper);
     }
 
     /** Disable with outbox.publisher.enabled=false (e.g. in tests that do not need Kafka). */
     @Bean
     @ConditionalOnProperty(prefix = "outbox.publisher", name = "enabled", havingValue = "true", matchIfMissing = true)
     OutboxPublisher outboxPublisher(OutboxRepository repository, KafkaTemplate<String, String> kafka,
-                                    TransactionTemplate tx, OutboxProperties props) {
-        return new OutboxPublisher(repository, kafka, tx, props);
+                                    TransactionTemplate tx, OutboxProperties props,
+                                    ObjectProvider<MeterRegistry> registry) {
+        return new OutboxPublisher(repository, kafka, tx, props, registry.getIfAvailable(SimpleMeterRegistry::new));
+    }
+
+    /** Backlog and lag gauges; only where an outbox table exists (that is, where the publisher runs). */
+    @Bean
+    @ConditionalOnProperty(prefix = "outbox.publisher", name = "enabled", havingValue = "true", matchIfMissing = true)
+    OutboxMetrics outboxMetrics(JdbcClient jdbc) {
+        return new OutboxMetrics(jdbc);
     }
 }

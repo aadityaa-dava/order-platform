@@ -1,5 +1,8 @@
 package dev.aadityaa.orderplatform.payment.gateway;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -9,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,15 +27,37 @@ public class PaymentGatewayClient {
 
     private final PaymentGateway gateway;
     private final GatewaySettings settings;
+    private final MeterRegistry registry;
     // Virtual threads: waiting on a slow gateway costs almost nothing.
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    public PaymentGatewayClient(PaymentGateway gateway, GatewaySettings settings) {
+    @Autowired
+    public PaymentGatewayClient(PaymentGateway gateway, GatewaySettings settings, MeterRegistry registry) {
         this.gateway = gateway;
         this.settings = settings;
+        this.registry = registry;
     }
 
+    public PaymentGatewayClient(PaymentGateway gateway, GatewaySettings settings) {
+        this(gateway, settings, new SimpleMeterRegistry());
+    }
+
+    /** Total time spent charging, including retries and backoff, tagged by the final outcome. */
     public GatewayOutcome charge(String idempotencyKey, long amountMinor, String currency, String customerId) {
+        Timer.Sample sample = Timer.start(registry);
+        GatewayOutcome outcome = null;
+        try {
+            outcome = chargeWithRetries(idempotencyKey, amountMinor, currency, customerId);
+            return outcome;
+        } finally {
+            String label = outcome == null ? "interrupted" : outcome.approved() ? "approved"
+                    : "DECLINED".equals(outcome.failureReason()) ? "declined" : "failed";
+            sample.stop(Timer.builder("payment.gateway.charge").description("Time to complete a charge, including retries")
+                    .tag("outcome", label).publishPercentileHistogram().register(registry));
+        }
+    }
+
+    private GatewayOutcome chargeWithRetries(String idempotencyKey, long amountMinor, String currency, String customerId) {
         var request = new ChargeRequest(idempotencyKey, amountMinor, currency, customerId);
         int maxAttempts = Math.max(1, settings.getMaxAttempts());
         String lastFailure = "GATEWAY_ERROR";

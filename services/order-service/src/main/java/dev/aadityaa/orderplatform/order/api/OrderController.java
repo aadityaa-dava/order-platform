@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,8 +30,9 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<OrderResponse> create(
             @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
+            @RequestAttribute(CorrelationIdFilter.ATTRIBUTE) UUID correlationId,
             @Valid @RequestBody CreateOrderRequest request) {
-        OrderResponse order = service.create(idempotencyKey, request);
+        OrderResponse order = service.create(idempotencyKey, request, correlationId);
         return ResponseEntity.accepted().location(URI.create("/orders/" + order.id())).body(order);
     }
 

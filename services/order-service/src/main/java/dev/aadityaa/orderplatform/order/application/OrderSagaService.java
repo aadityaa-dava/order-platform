@@ -6,6 +6,11 @@ import dev.aadityaa.orderplatform.order.events.InboundEvents;
 import dev.aadityaa.orderplatform.order.outbox.OrderEventWriter;
 import dev.aadityaa.orderplatform.platform.messaging.EventContext;
 import dev.aadityaa.orderplatform.platform.messaging.ProcessedEventRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
@@ -22,11 +27,14 @@ public class OrderSagaService {
     private final OrderRepository orders;
     private final ProcessedEventRepository processed;
     private final OrderEventWriter events;
+    private final MeterRegistry registry;
 
-    public OrderSagaService(OrderRepository orders, ProcessedEventRepository processed, OrderEventWriter events) {
+    public OrderSagaService(OrderRepository orders, ProcessedEventRepository processed, OrderEventWriter events,
+                            MeterRegistry registry) {
         this.orders = orders;
         this.processed = processed;
         this.events = events;
+        this.registry = registry;
     }
 
     @Transactional
@@ -55,9 +63,20 @@ public class OrderSagaService {
 
         if (transition.test(order)) {
             emit.accept(order);
+            recordOutcome(order);
             log.info("Order {} is now {}", order.getId(), order.getStatus());
         } else {
             log.info("Order {} is already {}; event {} ignored", order.getId(), order.getStatus(), ctx.eventId());
         }
+    }
+
+    /** The end-to-end number the platform is about: how long from order accepted to a final outcome. */
+    private void recordOutcome(Order order) {
+        String status = order.getStatus().name();
+        Counter.builder("orders.completed").description("Orders that reached a final state")
+                .tag("status", status).register(registry).increment();
+        Timer.builder("orders.saga.duration").description("Time from order accepted to final outcome")
+                .tag("status", status).publishPercentileHistogram().register(registry)
+                .record(Duration.between(order.getCreatedAt(), Instant.now()));
     }
 }

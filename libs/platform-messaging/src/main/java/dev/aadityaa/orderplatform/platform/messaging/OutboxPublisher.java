@@ -1,5 +1,7 @@
 package dev.aadityaa.orderplatform.platform.messaging;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,13 +26,18 @@ public class OutboxPublisher {
     private final KafkaTemplate<String, String> kafka;
     private final TransactionTemplate tx;
     private final OutboxProperties props;
+    private final Counter publishedCounter;
+    private final Counter failureCounter;
 
-    public OutboxPublisher(OutboxRepository outbox, KafkaTemplate<String, String> kafka,
-                           TransactionTemplate tx, OutboxProperties props) {
+    public OutboxPublisher(OutboxRepository outbox, KafkaTemplate<String, String> kafka, TransactionTemplate tx,
+                           OutboxProperties props, MeterRegistry registry) {
         this.outbox = outbox;
         this.kafka = kafka;
         this.tx = tx;
         this.props = props;
+        this.publishedCounter = Counter.builder("outbox.published").description("Events published to Kafka").register(registry);
+        this.failureCounter = Counter.builder("outbox.publish.failures")
+                .description("Failed attempts to publish an outbox event").register(registry);
     }
 
     @Scheduled(fixedDelayString = "${outbox.poll-interval-ms:200}")
@@ -42,6 +49,7 @@ public class OutboxPublisher {
                 published = result == null ? 0 : result;
             } while (published == props.batchSize()); // full batch: more may be waiting, keep draining
         } catch (Exception e) {
+            failureCounter.increment();
             log.warn("Outbox publish cycle failed; will retry on next poll: {}", e.toString());
         }
     }
@@ -77,11 +85,13 @@ public class OutboxPublisher {
                 Thread.currentThread().interrupt();
                 break;
             } catch (Exception e) {
+                failureCounter.increment();
                 log.warn("Publish failed for outbox id {}; stopping this batch: {}", batch.get(i).id(), e.toString());
                 break; // only the leading successes are marked; the rest stay unpublished
             }
         }
         outbox.markPublished(published);
+        publishedCounter.increment(published.size());
         return published.size();
     }
 

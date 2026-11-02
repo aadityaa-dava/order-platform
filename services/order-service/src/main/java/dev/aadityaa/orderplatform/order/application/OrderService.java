@@ -15,6 +15,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class OrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orders;
     private final IdempotencyRepository idempotency;
@@ -43,6 +47,10 @@ public class OrderService {
      * so the transaction must end before we handle the conflict.
      */
     public OrderResponse create(String idempotencyKey, CreateOrderRequest request) {
+        return create(idempotencyKey, request, UUID.randomUUID());
+    }
+
+    public OrderResponse create(String idempotencyKey, CreateOrderRequest request, UUID correlationId) {
         String hash = hash(request);
 
         Optional<OrderResponse> replay = replay(idempotencyKey, hash);
@@ -50,7 +58,7 @@ public class OrderService {
             return replay.get();
         }
         try {
-            return tx.execute(status -> persistNewOrder(idempotencyKey, hash, request));
+            return tx.execute(status -> persistNewOrder(idempotencyKey, hash, request, correlationId));
         } catch (DataIntegrityViolationException e) {
             // A concurrent request with the same key won the race; return its order.
             return replay(idempotencyKey, hash).orElseThrow(() -> e);
@@ -64,16 +72,17 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(id));
     }
 
-    private OrderResponse persistNewOrder(String key, String hash, CreateOrderRequest request) {
+    private OrderResponse persistNewOrder(String key, String hash, CreateOrderRequest request, UUID correlationId) {
         var items = request.items().stream()
                 .map(i -> new OrderItem(i.sku(), i.quantity(), i.unitPriceMinor()))
                 .toList();
         Order order = Order.create(request.customerId(), request.customerEmail(),
-                request.currency(), UUID.randomUUID(), items);
+                request.currency(), correlationId, items);
 
         orders.saveAndFlush(order);                    // order row must exist before the FK in idempotency_keys
         idempotency.insert(key, hash, order.getId());  // PK conflict here means a concurrent duplicate
         events.orderCreated(order);                    // outbox row, same transaction
+        log.info("Order {} created: {} item(s), total {} {}", order.getId(), items.size(), order.getTotalAmountMinor(), order.getCurrency());
         return OrderResponse.from(order);
     }
 

@@ -70,6 +70,18 @@ Each entry: symptom, root cause, fix, lesson.
 - Lesson: a passing suite measures what it runs, not what matters. Read the coverage report
   per area, look for rows that are missing, and ask what the tests switch off.
 
+## 6. The coverage gate failed on stale data
+
+- Symptom: `./mvnw install -DskipTests` failed with "Coverage checks have not been met" in a
+  module whose code and tests were fine.
+- Root cause: skipping tests skips running them, but the JaCoCo check still ran. It read the
+  coverage data file left by an earlier full build and compared it with the newly compiled
+  classes, so every changed class counted as uncovered.
+- Fix: when skipping tests, also pass `-Djacoco.skip=true`. CI always builds from a clean
+  checkout and runs the full `verify`, so it never sees stale data.
+- Lesson: a quality gate must judge the current code. If its input can be stale, it will
+  eventually fail (or pass) for the wrong reason.
+
 ## Open issues (planned experiments)
 
 - Orders can stay PENDING forever if an event is lost or a service dies mid-saga, and
