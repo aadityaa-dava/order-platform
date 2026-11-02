@@ -43,6 +43,19 @@ Each entry: symptom, root cause, fix, lesson.
   retried, never dropped, but that blocks the partition, so a failing recoverer needs
   an alert (Phase 9).
 
+## 4. Integration tests passed alone but failed together ("relation outbox does not exist")
+
+- Symptom: a Testcontainers test class passed; a second class using the same base class
+  failed every test because the schema was missing.
+- Root cause: Spring caches the application context across test classes, but the container
+  was declared per class (`@Container` on a static field), so the extension stopped and
+  restarted it between classes. The cached context's Flyway migrations had run against a
+  container that no longer existed.
+- Fix: singleton container pattern. Start one container per JVM in a static initializer and
+  pass its connection details through `@DynamicPropertySource`.
+- Lesson: shared (cached) Spring context and per-class containers do not mix. Decide the
+  lifecycle of expensive test fixtures deliberately.
+
 ## Open issues (planned experiments)
 
 - Orders can stay PENDING forever if an event is lost or a service dies mid-saga, and
