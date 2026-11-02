@@ -32,4 +32,13 @@
   </modules>
 
   <!-- Service modules are added here one per phase, as each one is created. -->
+  <build>
+    <plugins>
+      <!-- Runs *IT classes in `mvn verify`; plain `mvn test` stays fast and Docker-free. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
 </project>
