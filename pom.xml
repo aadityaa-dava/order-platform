@@ -27,6 +27,7 @@
     <module>libs/platform-messaging</module>
     <module>services/order-service</module>
     <module>services/inventory-service</module>
+    <module>services/payment-service</module>
   </modules>
 
   <!-- Service modules are added here one per phase, as each one is created. -->
