@@ -1,0 +1,13 @@
+{
+  "eventId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  "eventType": "StockReleased",
+  "eventVersion": 1,
+  "occurredAt": "2026-11-02T17:00:00Z",
+  "orderId": "b2a1c3d4-5e6f-4789-a0b1-c2d3e4f50617",
+  "correlationId": "0c9d8e7f-6a5b-4c3d-8e1f-0a9b8c7d6e5f",
+  "producer": "inventory-service",
+  "payload": {
+    "reservationId": "11111111-2222-4333-8444-555555555555",
+    "reason": "PAYMENT_FAILED"
+  }
+}

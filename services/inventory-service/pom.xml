@@ -62,6 +62,18 @@
       <artifactId>postgresql</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>dev.aadityaa.orderplatform</groupId>
+      <artifactId>event-contracts</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>dev.aadityaa.orderplatform</groupId>
+      <artifactId>test-support</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

@@ -20,11 +20,14 @@
 
   <properties>
     <java.version>21</java.version>
+    <jacoco.version>0.8.13</jacoco.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
   <modules>
     <module>libs/platform-messaging</module>
+    <module>libs/event-contracts</module>
+    <module>libs/test-support</module>
     <module>services/order-service</module>
     <module>services/inventory-service</module>
     <module>services/payment-service</module>
@@ -38,6 +41,61 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <!-- The 80% line-coverage gate applies to core logic, not to config classes or data carriers. -->
+              <includes>
+                <include>**/application/*.class</include>
+                <include>**/domain/*.class</include>
+                <include>**/gateway/*.class</include>
+                <include>**/email/*.class</include>
+                <include>**/stock/*.class</include>
+                <include>**/reservation/*.class</include>
+                <include>**/persistence/*.class</include>
+                <include>**/idempotency/*.class</include>
+                <include>**/outbox/*.class</include>
+                <include>**/messaging/*.class</include>
+                <include>**/contracts/*.class</include>
+              </includes>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.80</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
