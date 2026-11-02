@@ -56,6 +56,20 @@ Each entry: symptom, root cause, fix, lesson.
 - Lesson: shared (cached) Spring context and per-class containers do not mix. Decide the
   lifecycle of expensive test fixtures deliberately.
 
+## 5. Good-looking tests and 80% coverage still hid untested wiring
+
+- Symptom: all tests passed, but the first JaCoCo report showed the shared messaging library
+  with no coverage row at all, and the Kafka listeners at 23-50% lines and 0% branches.
+- Root cause: the integration tests switched the listeners off and called the service classes
+  directly, so the path "Kafka record -> parse -> handler" (and the shared retry and
+  dead-letter handler) was never run in CI. The shared library had no tests of its own and was
+  only exercised indirectly, so its coverage was not even measured.
+- Fix: direct tests for the library (transaction rules, SKIP LOCKED, publisher with a real and
+  an unreachable broker), end-to-end listener tests against a real Kafka broker (including a
+  poison message directly in front of a valid one), and an enforced 80% gate on core logic.
+- Lesson: a passing suite measures what it runs, not what matters. Read the coverage report
+  per area, look for rows that are missing, and ask what the tests switch off.
+
 ## Open issues (planned experiments)
 
 - Orders can stay PENDING forever if an event is lost or a service dies mid-saga, and
