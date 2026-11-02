@@ -1,5 +1,7 @@
 package dev.aadityaa.orderplatform.inventory.application;
 
+import dev.aadityaa.orderplatform.platform.messaging.EventContext;
+
 import dev.aadityaa.orderplatform.inventory.events.InboundEvents;
 import dev.aadityaa.orderplatform.inventory.events.InventoryEvents;
 import dev.aadityaa.orderplatform.inventory.reservation.ReservationRepository;

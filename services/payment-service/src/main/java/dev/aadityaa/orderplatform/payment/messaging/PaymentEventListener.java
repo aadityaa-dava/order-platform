@@ -1,12 +1,10 @@
 package dev.aadityaa.orderplatform.payment.messaging;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.aadityaa.orderplatform.payment.application.EventContext;
 import dev.aadityaa.orderplatform.payment.application.PaymentService;
 import dev.aadityaa.orderplatform.payment.events.InboundEvents;
-import java.util.UUID;
+import dev.aadityaa.orderplatform.platform.messaging.IncomingEvent;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,15 +26,11 @@ public class PaymentEventListener {
 
     @KafkaListener(topics = InboundEvents.INVENTORY_TOPIC)
     public void onInventoryEvent(ConsumerRecord<String, String> record) throws JsonProcessingException {
-        JsonNode root = mapper.readTree(record.value());
-        if ("StockReserved".equals(root.path("eventType").asText())) {
-            EventContext ctx = new EventContext(
-                    UUID.fromString(root.path("eventId").asText()),
-                    UUID.fromString(root.path("orderId").asText()),
-                    UUID.fromString(root.path("correlationId").asText()));
-            service.onStockReserved(ctx, mapper.treeToValue(root.path("payload"), InboundEvents.StockReserved.class));
+        IncomingEvent event = IncomingEvent.parse(mapper, record.value());
+        if ("StockReserved".equals(event.eventType())) {
+            service.onStockReserved(event.context(), event.payloadAs(mapper, InboundEvents.StockReserved.class));
         } else {
-            log.debug("Ignoring {} on {}", root.path("eventType").asText(), record.topic());
+            log.debug("Ignoring {} on {}", event.eventType(), record.topic());
         }
     }
 }
