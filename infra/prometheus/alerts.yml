@@ -1,0 +1,33 @@
+groups:
+  - name: order-platform
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 20s
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} cannot be scraped"
+
+      - alert: OutboxLagHigh
+        expr: outbox_oldest_age_seconds > 30
+        for: 20s
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.application }} has events waiting in its outbox for over 30s (Kafka or the publisher is in trouble)"
+
+      - alert: DeadLettersAppearing
+        expr: increase(consumer_dead_letters_total[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }} parked messages in a dead-letter topic ({{ $labels.topic }})"
+
+      - alert: SagaSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(orders_saga_duration_seconds_bucket[2m]))) > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 time from order accepted to final outcome is over 5s"

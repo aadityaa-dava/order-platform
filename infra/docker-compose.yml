@@ -2,6 +2,7 @@ name: order-platform
 include:
   - path: databases.yml
   - path: cache.yml
+  - path: observability.yml
 
 services:
   kafka:
