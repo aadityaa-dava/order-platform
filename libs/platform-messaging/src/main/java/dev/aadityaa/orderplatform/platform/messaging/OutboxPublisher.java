@@ -50,7 +50,7 @@ public class OutboxPublisher {
                 .description("Failed attempts to publish an outbox event").register(registry);
     }
 
-    @Scheduled(fixedDelayString = "${outbox.poll-interval-ms:200}")
+    @Scheduled(fixedDelayString = "${outbox.poll-interval-ms:50}")
     public void poll() {
         try {
             int published;

@@ -6,7 +6,7 @@ export LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs   # JSON logs when started by this 
 PORTS="8081 8082 8083 8084"
 
 stop() {
-  for p in $PORTS; do lsof -ti :"$p" | xargs kill 2>/dev/null; done
+  for p in $PORTS; do lsof -ti tcp:"$p" -sTCP:LISTEN | xargs kill 2>/dev/null; done
 }
 trap 'echo; echo "Stopping services..."; stop; exit 0' INT TERM
 stop # free the ports from any previous run

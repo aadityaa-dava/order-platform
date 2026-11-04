@@ -32,3 +32,13 @@ More partitions and threads (cheap, until the database pool or gateway rate limi
 
 ## Limitations
 Single machine, load generator competes with the system, simulated gateway with no rate limit, one run per point, no network latency between components.
+
+## Re-verification under the final settings
+After the failure experiments the services ran with 768 MB heaps and Docker Desktop was limited to 8 GB (earlier runs: unlimited heaps, 16 GB). The outbox poll default of 50 ms was also moved into the code (during the experiment it was an environment variable). Same workload, after a 30 s warm-up:
+
+| Offered | Saga p50 / p95 / p99 (ms) | Drain |
+|---|---|---|
+| 20/s | 270 / 412 / 505 | 2 s |
+| 100/s | 2054 / 6223 / 7050 | 7 s |
+
+These match the earlier numbers (270 / 403 at 20/s; 2238 / 5601 at 100/s), so the lower memory limits changed nothing measurable. A first attempt directly after starting the services (no warm-up) sent only 314 of 600 orders with a 12.8 s outbox lag and was discarded: always warm up.

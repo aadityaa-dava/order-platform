@@ -7,7 +7,7 @@ export LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs
 export MANAGEMENT_TRACING_SAMPLING_PROBABILITY=${SAMPLING:-0.0}
 ./scripts/stop-services.sh
 for svc in order-service inventory-service payment-service notification-service; do
-  nohup ./mvnw -q -pl services/"$svc" spring-boot:run > logs/"$svc".log 2>&1 &
+  nohup ./mvnw -q -pl services/"$svc" spring-boot:run -Dspring-boot.run.jvmArguments="-Xmx768m -Xms128m" > logs/"$svc".log 2>&1 &
 done
 for p in 8081 8082 8083 8084; do until curl -sf localhost:"$p"/actuator/health > /dev/null; do sleep 2; done; done
 echo "all services are up"

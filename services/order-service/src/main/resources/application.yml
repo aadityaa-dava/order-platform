@@ -42,7 +42,7 @@ spring:
         max.block.ms: 5000
 
 outbox:
-  poll-interval-ms: 200
+  poll-interval-ms: 50
   batch-size: 100
   send-timeout-ms: 5000
   cleanup-interval-ms: 60000
