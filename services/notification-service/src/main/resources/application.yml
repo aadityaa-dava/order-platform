@@ -21,7 +21,7 @@ spring:
     listener:
       ack-mode: record
       observation-enabled: true
-      concurrency: 3
+      concurrency: 12
     producer:   # used only by the shared dead-letter publisher
       acks: all
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

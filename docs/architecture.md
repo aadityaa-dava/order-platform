@@ -65,7 +65,7 @@ Design choices:
   ownership. Trade-off: consumers receive and skip event types they do not need.
 - Key = orderId so all events for one order are ordered on one partition.
   Parallelism comes from many orders across partitions.
-- 3 partitions locally; a real deployment would size from target throughput and
+- 12 partitions locally; a real deployment would size from target throughput and
   consumer count.
 - Kafka runs in KRaft mode (no ZooKeeper).
 

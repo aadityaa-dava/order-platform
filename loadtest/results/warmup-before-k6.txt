@@ -1,0 +1,39 @@
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{name:create_order}
+    ✗ 'p(95)<500' p(95)=995.79ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 301     10.030179/s
+    checks_succeeded...: 100.00% 301 out of 301
+    checks_failed......: 0.00%   0 out of 301
+
+    ✓ accepted (202)
+
+    HTTP
+    http_req_duration..............: avg=104.68ms med=8.98ms p(90)=23.1ms  p(95)=995.79ms p(99)=1.89s max=2.09s
+      { expected_response:true }...: avg=104.68ms med=8.98ms p(90)=23.1ms  p(95)=995.79ms p(99)=1.89s max=2.09s
+      { name:create_order }........: avg=104.68ms med=8.98ms p(90)=23.1ms  p(95)=995.79ms p(99)=1.89s max=2.09s
+    http_req_failed................: 0.00%  0 out of 301
+    http_reqs......................: 301    10.030179/s
+
+    EXECUTION
+    iteration_duration.............: avg=105.2ms  med=9.32ms p(90)=23.76ms p(95)=997.53ms p(99)=1.89s max=2.09s
+    iterations.....................: 301    10.030179/s
+    vus............................: 0      min=0        max=19
+    vus_max........................: 50     min=50       max=50
+
+    NETWORK
+    data_received..................: 165 kB 5.5 kB/s
+    data_sent......................: 96 kB  3.2 kB/s
+
+
+
+time="2026-11-03T12:14:47-05:00" level=error msg="thresholds on metrics 'http_req_duration{name:create_order}' have been crossed"

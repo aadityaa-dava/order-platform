@@ -126,3 +126,9 @@ Each entry: symptom, root cause, fix, lesson.
   (Phase 11), then fixed.
 - Nothing reads the dead-letter topics yet. Planned: a metric and alert on DLT depth
   (Phase 9) and a small replay tool.
+
+## Load testing (Phase 10)
+- **Docker Desktop quit during long runs (four times).** The VM was allowed all 16 GB of the Mac's RAM, and Jaeger keeps every trace in memory at 100% sampling. Fix: stop Jaeger and set sampling to 0 for load tests, cap Docker at 8-10 GB, run long experiments detached (`nohup caffeinate`) and append results per step so a crash only loses the unfinished step.
+- **The Kafka client lag metric (`records-lag-max`) read 0.0 while the broker showed 487 records behind.** It measures the fetch position, not processing. Use broker-side consumer group lag, or the age of an event when it is processed.
+- **A measurement that changed nothing is still a result.** The first "after" run accidentally ran on the old thread count. It proved that more partitions alone do not help: the limit was threads per listener.
+- **Closing the terminal killed the experiment.** The sweep script now writes each step's row as soon as it finishes, and the resume only re-runs the unfinished steps.

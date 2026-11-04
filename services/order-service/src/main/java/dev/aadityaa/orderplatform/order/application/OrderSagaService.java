@@ -76,7 +76,7 @@ public class OrderSagaService {
         Counter.builder("orders.completed").description("Orders that reached a final state")
                 .tag("status", status).register(registry).increment();
         Timer.builder("orders.saga.duration").description("Time from order accepted to final outcome")
-                .tag("status", status).publishPercentileHistogram().register(registry)
+                .tag("status", status).publishPercentileHistogram().maximumExpectedValue(Duration.ofMinutes(5)).register(registry)
                 .record(Duration.between(order.getCreatedAt(), Instant.now()));
     }
 }

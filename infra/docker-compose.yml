@@ -49,8 +49,8 @@ services:
         set -e
         BS=kafka:29092
         for t in order.events inventory.events payment.events; do
-          /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$BS --create --if-not-exists --topic $$t --partitions 3 --replication-factor 1
-          /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$BS --create --if-not-exists --topic $$t.DLT --partitions 3 --replication-factor 1
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$BS --create --if-not-exists --topic $$t --partitions 12 --replication-factor 1
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$BS --create --if-not-exists --topic $$t.DLT --partitions 12 --replication-factor 1
         done
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server $$BS --list
 

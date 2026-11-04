@@ -1,0 +1,7 @@
+date:            2026-11-02 13:41
+machine:         Apple M4, 10 cores, 16 GB RAM
+macOS:           26.6.2
+docker:          10 CPUs, 16745824256 bytes memory for the VM
+java:            openjdk version "21.0.11" 2026-04-21
+k6:              k6 v2.3.0 (commit/devel, go1.27.1, darwin/arm64)
+everything runs on this one machine: k6, four JVMs, Kafka, PostgreSQL x4, Redis, Prometheus, Grafana, Jaeger
